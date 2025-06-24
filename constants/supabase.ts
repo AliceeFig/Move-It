@@ -1,0 +1,4 @@
+
+export const supaUrl= 'https://wihedymczmmoixtkbzmi.supabase.co'
+
+export const anonKey= 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpaGVkeW1jem1tb2l4dGtiem1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc5NTI0NTgsImV4cCI6MjA2MzUyODQ1OH0.2z7wrQWFxHlVp5KFO1IMWFC88iBxUbuHFUsNIPp8fQw'
