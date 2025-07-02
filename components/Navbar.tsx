@@ -1,18 +1,43 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { useEffect, useState } from 'react';
+import { supabase } from '../src/lib/supabase';
 
-interface NavBarProps {
+type NavBarProps = {
   title: string;
-}
+  showHome?: boolean;
+  onProfilePress?: () => void;
+};
 
-export default function NavBar({ title }: NavBarProps) {
+  const [nome, setNome] = useState('');
+
+  useEffect(() => {
+    async function fetchNome() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData.session?.user;
+
+      if (!user) return;
+
+      const nomeMeta = user.user_metadata?.nome;
+      if (nomeMeta) {
+        setNome(nomeMeta);
+      }
+    }
+
+    fetchNome();
+  }, []);
+
+
+export default function NavBar({ title, onProfilePress }: NavBarProps) {
   return (
     <View style={styles.navBar}>
       <View style={styles.profileContainer}>
-        <Image
-          source={require('../assets/images/userm.png')}
-          style={styles.profileImage}
-        />
+        <Pressable onPress={onProfilePress}>
+          <Image
+            source={require('../assets/images/userm.png')}
+            style={styles.profileImage}
+          />
+        </Pressable>
         <Text style={styles.title}>{title}</Text>
       </View>
     </View>
@@ -21,20 +46,20 @@ export default function NavBar({ title }: NavBarProps) {
 
 const styles = StyleSheet.create({
   navBar: {
-    backgroundColor: '#FF6B00',
-    height: 80,
+    backgroundColor: '#9D4EDD',
+    height: 120,
     justifyContent: 'center',
     paddingHorizontal: 16,
-    paddingTop: 30,
+    paddingTop: 60,
   },
   profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 20,
   },
   profileImage: {
-    width: 35,
-    height: 35,
+    width: 55,
+    height: 55,
     borderRadius: 50,
     backgroundColor: '#fff',
   },

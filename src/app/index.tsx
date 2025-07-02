@@ -16,8 +16,8 @@ import { supabase } from "../lib/supabase";
 import { router } from "expo-router";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("gestor@teste.com");
+  const [password, setPassword] = useState("123gestor");
   const [loading, setLoading] = useState(false);
 
   async function handleSignIn() {
