@@ -1,50 +1,65 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Entypo, FontAwesome } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { useEffect, useState } from 'react';
+import { supabase } from '../src/lib/supabase';
 
-export default function NavBar() {
+type NavBarProps = {
+  title: string;
+  showHome?: boolean;
+  onProfilePress?: () => void;
+};
+
+  const [nome, setNome] = useState('');
+
+  useEffect(() => {
+    async function fetchNome() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const user = sessionData.session?.user;
+
+      if (!user) return;
+
+      const nomeMeta = user.user_metadata?.nome;
+      if (nomeMeta) {
+        setNome(nomeMeta);
+      }
+    }
+
+    fetchNome();
+  }, []);
+
+
+export default function NavBar({ title, onProfilePress }: NavBarProps) {
   return (
     <View style={styles.navBar}>
-      <Link href="/(aluno)" asChild style={styles.navItem}>
-        <TouchableOpacity>
-          <Entypo name="home" size={32} color="white" />
-        </TouchableOpacity>
-      </Link>
-
-      <Link href="/(aluno)/mapa-rota" asChild style={styles.navItem}>
-        <TouchableOpacity>
-          <FontAwesome name="map-marker" size={32} color="white" />
-        </TouchableOpacity>
-      </Link>
-
-      <Link href="/(aluno)/geral" asChild style={styles.navItem}>
-        <TouchableOpacity>
-          <Entypo name="menu" size={32} color="white" />
-        </TouchableOpacity>
-      </Link>
+      <View style={styles.profileContainer}>
+        <Pressable onPress={onProfilePress}>
+          <Image
+            source={require('../assets/images/userm.png')}
+            style={styles.profileImage}
+          />
+        </Pressable>
+        <Text style={styles.title}>{title}</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   navBar: {
-    flexDirection: 'row',
-    height: 90,
-    alignItems: 'center', // garante centralização vertical dos ícones
-    backgroundColor: '#5A189A',
-    paddingHorizontal: 12,
-    paddingTop: 10, // ⬅️ DIMINUÍDO (antes era 25)
-    paddingBottom: 50, // ⬅️ AUMENTADO um pouco para afastar da nav bar do sistema
+    backgroundColor: '#9D4EDD',
+    height: 120,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 60,
   },
   profileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 20,
   },
   profileImage: {
-    width: 35,
-    height: 35,
+    width: 55,
+    height: 55,
     borderRadius: 50,
     backgroundColor: '#fff',
   },
@@ -53,8 +68,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  navItem: {
-    flexGrow: 1,
-    alignItems:'center'
-  }
 });

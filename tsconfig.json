@@ -1,6 +1,13 @@
 {
-  "compilerOptions": {},
   "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-native",           // 👈 ESSENCIAL para que JSX funcione
+    "types": ["react", "react-native"], // 👈 Garante tipagem correta para JSX
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
   "include": [
     "**/*.ts",
     "**/*.tsx",

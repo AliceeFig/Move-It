@@ -1,55 +1,61 @@
-import { useState } from 'react';
+import { useState} from 'react';
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Pressable, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import Button from '../../../../components/Button';
-import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../../lib/supabase';
+import { router } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import { supabase } from '../../../lib/supabase'
 
 export default function Signup() {
+
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(''); 
   const [password, setPassword] = useState('');
-  const [tipo, setTipo] = useState('gestor');
+  const [tipo, setTipo] = useState('gestor'); // gestor, motorista, aluno
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSignUp() {
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
+    const {data, error} = await supabase.auth.signUp({
       email: email,
       password: password,
-      options: {
+      options: { 
         data: {
-          nome: name,
-          email: email,
-          tipo: tipo,
-        },
-      },
-    });
+        nome: name,
+        email: email,
+        tipo: tipo
+        }
+      }
+    })
 
-    if (error) {
-      Alert.alert('Error', error.message);
+    
+    if(error){
+      Alert.alert('Error', error.message)
       setLoading(false);
       return;
     }
-
+    
     setLoading(false);
-    router.replace('/');
+    router.replace('/')
   }
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={24} color="#FFF" />
-      </Pressable>
 
+      <Pressable style= {styles.backButton}
+      onPress={() => router.back()} 
+      >
+        <Ionicons name="arrow-back" size={24} color='#FFF'/>
+      </Pressable>
       <Text style={styles.title}>Move It</Text>
 
       <View style={styles.iconContainer}>
-        <Image source={require('../../../../assets/images/logo.png')} style={styles.icon} />
+        <Image
+          source={require('../../../../assets/images/logo.png')}
+          style={styles.icon}
+        />
       </View>
 
       <TextInput
@@ -69,22 +75,20 @@ export default function Signup() {
         value={email}
         onChangeText={setEmail}
       />
-
-      <View style={styles.passwordContainer}>
-        <TextInput
-          style={styles.inputPassword}
-          placeholder="Senha:"
-          placeholderTextColor="#000"
-          secureTextEntry={!showPassword}
-          value={password}
-          onChangeText={setPassword}
-        />
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={24} color="#000" />
-        </TouchableOpacity>
-      </View>
-
-      <Picker style={styles.picker} selectedValue={tipo} onValueChange={(itemValue) => setTipo(itemValue)}>
+      <TextInput
+        style={styles.input}
+        placeholder="Senha:"
+        placeholderTextColor="#000"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+      <Picker
+        style={styles.picker}
+        selectedValue={tipo}
+        onValueChange={(itemValue: string) => setTipo(itemValue)}
+        
+      >
         <Picker.Item label="Gestor" value="gestor" />
         <Picker.Item label="Motorista" value="motorista" />
         <Picker.Item label="Aluno" value="aluno" />
@@ -93,8 +97,10 @@ export default function Signup() {
       <Button
         onPress={handleSignUp}
         style={styles.button}
-        title={loading ? 'Carregando...' : 'Cadastrar'}
+        title={loading? 'Carregando...' : 'Cadastrar'}
       />
+
+
     </View>
   );
 }
@@ -131,21 +137,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 16,
   },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
-    marginBottom: 15,
-    paddingHorizontal: 10,
-    height: 45,
-    width: '100%',
-    justifyContent: 'space-between',
-  },
-  inputPassword: {
-    flex: 1,
-    fontSize: 16,
-  },
   picker: {
     width: '100%',
     height: 50,
@@ -155,6 +146,14 @@ const styles = StyleSheet.create({
   button: {
     width: '80%',
   },
+  footerText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#000',
+  },
+  link: {
+    color: '#5A189A',
+  },
   backButton: {
     position: 'absolute',
     top: 40,
@@ -163,5 +162,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
     marginBottom: 8,
-  },
+
+  }
 });

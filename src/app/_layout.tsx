@@ -1,18 +1,33 @@
-import { Stack } from 'expo-router'
+import {Stack} from 'expo-router'
 
 export default function MainLayout() {
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" />
+  return(
+    <Stack>
+      <Stack.Screen
+        name="index"
+        options={{ headerShown: false}}
+      />
 
-      <Stack.Screen name="(auth)/signup/page" />
+      <Stack.Screen
+        name="(auth)/signup/page"
+        options={{ headerShown: false}}
+      />
 
       {/* Rotas dos usuários */}
-      <Stack.Screen name="(gestor)/index" />
+      <Stack.Screen 
+      name="(gestor)/index" 
+      options={{ headerShown: false }} 
+      />
 
-      <Stack.Screen name="(motorista)/index" />
+      <Stack.Screen 
+      name="(motorista)/index"
+      options={{ headerShown: false }} 
+      />
 
-      <Stack.Screen name="(aluno)/index" />
+      <Stack.Screen 
+      name="(aluno)/index" 
+      options={{ headerShown: false }} 
+      />
 
 
     </Stack>
