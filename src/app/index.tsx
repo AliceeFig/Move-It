@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -11,14 +11,15 @@ import {
 } from "react-native";
 import Button from "../../components/Button";
 import { Link } from "expo-router";
-import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Login() {
-  const [email, setEmail] = useState("gestor@teste.com");
-  const [password, setPassword] = useState("123gestor");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSignIn() {
     setLoading(true);
@@ -33,6 +34,7 @@ export default function Login() {
       setLoading(false);
       return;
     }
+
     const tipo_usuario = authData.user.user_metadata.tipo;
 
     if (tipo_usuario === "aluno") {
@@ -63,13 +65,23 @@ export default function Login() {
         autoCapitalize="none"
         onChangeText={setEmail}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Senha:"
-        placeholderTextColor="#000"
-        secureTextEntry
-        onChangeText={setPassword}
-      />
+
+      <View style={styles.passwordContainer}>
+        <TextInput
+          style={styles.inputPassword}
+          placeholder="Senha:"
+          placeholderTextColor="#000"
+          secureTextEntry={!showPassword}
+          onChangeText={setPassword}
+        />
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+          <Ionicons
+            name={showPassword ? "eye-off" : "eye"}
+            size={24}
+            color="#000"
+          />
+        </TouchableOpacity>
+      </View>
 
       <Button
         title={loading ? "Carregando..." : "Entrar"}
@@ -80,7 +92,7 @@ export default function Login() {
       <Link href="/(auth)/signup/page" style={styles.footerText}>
         <Text>
           Não possui uma conta?
-          <Text style={styles.link}>Cadastre-se.</Text>
+          <Text style={styles.link}> Cadastre-se.</Text>
         </Text>
       </Link>
     </View>
@@ -119,6 +131,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     fontSize: 16,
   },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E0E0E0",
+    borderRadius: 4,
+    marginBottom: 15,
+    paddingHorizontal: 10,
+    height: 45,
+    width: "100%",
+    justifyContent: "space-between",
+  },
+  inputPassword: {
+    flex: 1,
+    fontSize: 16,
+  },
   button: {
     width: "80%",
   },
@@ -126,6 +153,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 14,
     color: "#000",
+    marginTop: 10,
   },
   link: {
     color: "#5A189A",
