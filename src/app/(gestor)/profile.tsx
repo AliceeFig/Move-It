@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { supabase } from '../../lib/supabase';
-import Navbar from '../../../components/Navbar';
+import Navbar from '../../../components/Navbar1';
 import Button from '../../../components/Button';
 import { useRouter } from 'expo-router';
 
@@ -77,7 +77,7 @@ export default function GestorProfile() {
         <Text style={styles.value}>{cnpj}</Text>
       </View>
 
-      <Button title="Editar" onPress={() => { /* navegação futura */ }} style={styles.button} />
+      <Button title="Editar" onPress={() => router.push('../edit_profile')} style={styles.button} />
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Navbar from '../../../components/Navbar';
+import Navbar from '../../../components/Navbar1';
 import Button from '../../../components/Button';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
