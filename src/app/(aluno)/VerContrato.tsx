@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, SafeAreaView, Image, ScrollView } from "react-native";
-import NavBar from "../../../components/Navbar";
+import NavBar from "../../../components/NavBar";
 import { MaterialIcons } from "@expo/vector-icons";
 
 export default function VerContrato() {

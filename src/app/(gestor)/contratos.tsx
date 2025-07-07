@@ -1,20 +1,72 @@
-import { View, Text, FlatList, StyleSheet } from 'react-native';
-import { useState } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { useEffect, useState } from 'react';
 import Button from '../../../components/Button';
 import FiltroInput from '../../../components/FiltroInput';
 import FiltroSelect from '@/components/FiltroSelect';
 import { router } from 'expo-router';
+import { supabase } from '@/src/lib/supabase';
 
-const contratos = [
-  { nome: 'Alice Figueira', turno: 'Noturno' },
-  { nome: 'Hêmilly Pereira', turno: 'Diurno' },
-  { nome: 'Daniel Feitosa', turno: 'Diurno' },
-  { nome: 'Weder Santos', turno: 'Noturno' },
-];
+interface ItemContrato {
+  id: string;
+  turno: string;
+  aluno: {
+    nome: string;
+  };
+}
+
+interface ItemSolicitacao {
+  id: string;
+  turno: string;
+  nome_aluno: string;
+}
 
 export default function Contratos() {
   const [tipoFiltro, setTipoFiltro] = useState<'ativos' | 'solicitacoes'>('ativos');
   const [busca, setBusca] = useState('');
+  const [dados, setDados] = useState<(ItemContrato | ItemSolicitacao)[]>([]);
+  const [carregando, setCarregando] = useState(false);
+
+  async function carregarDados() {
+    setCarregando(true);
+
+    if (tipoFiltro === 'ativos') {
+      const { data, error } = await supabase
+        .from('contratos')
+        .select('id, turno, aluno (nome)');
+
+      if (error) {
+        console.error('Erro ao buscar contratos:', error.message);
+        setDados([]);
+      } else {
+        setDados(data as unknown as ItemContrato[]);
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('solicitacoes_contrato')
+        .select('id, nome_aluno');
+
+      if (error) {
+        console.error('Erro ao buscar solicitações:', error.message);
+        setDados([]);
+      } else {
+        setDados(data as ItemSolicitacao[]);
+      }
+    }
+
+    setCarregando(false);
+  }
+
+  useEffect(() => {
+    carregarDados();
+  }, [tipoFiltro]);
+
+  const dadosFiltrados = dados.filter((c) => {
+    const nome =
+      tipoFiltro === 'ativos'
+        ? (c as ItemContrato).aluno?.nome
+        : (c as ItemSolicitacao).nome_aluno;
+    return nome?.toLowerCase().includes(busca.toLowerCase());
+  });
 
   return (
     <View style={styles.container}>
@@ -34,20 +86,31 @@ export default function Contratos() {
         onPress={() => {}}
       />
 
-      <FlatList
-        contentContainerStyle={styles.lista}
-        data={contratos.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()))}
-        keyExtractor={(item) => item.nome}
-        renderItem={({ item }) => (
-          <View style={styles.itemContainer}>
-            <View style={styles.avatar} />
-            <View>
-              <Text style={styles.nome}>{item.nome}</Text>
-              <Text style={styles.turno}>{item.turno}</Text>
-            </View>
-          </View>
-        )}
-      />
+      {carregando ? (
+        <ActivityIndicator size="large" color="#7e22ce" />
+      ) : (
+        <FlatList
+          contentContainerStyle={styles.lista}
+          data={dadosFiltrados}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => {
+            const nome =
+              tipoFiltro === 'ativos'
+                ? (item as ItemContrato).aluno?.nome
+                : (item as ItemSolicitacao).nome_aluno;
+
+            return (
+              <View style={styles.itemContainer}>
+                <View style={styles.avatar} />
+                <View>
+                  <Text style={styles.nome}>{nome}</Text>
+                  <Text style={styles.turno}>{item.turno}</Text>
+                </View>
+              </View>
+            );
+          }}
+        />
+      )}
     </View>
   );
 }

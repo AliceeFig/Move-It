@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import NavBar from "../../../components/Navbar";
+import NavBar from "../../../components/NavBar";
 import { useRouter } from "expo-router";
 
 export default function Geral() {

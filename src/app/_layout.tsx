@@ -25,7 +25,7 @@ export default function MainLayout() {
       />
 
       <Stack.Screen 
-      name="(aluno)/index" 
+      name="(aluno)/inicio" 
       options={{ headerShown: false }} 
       />
 

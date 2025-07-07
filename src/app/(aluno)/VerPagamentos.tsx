@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../lib/supabase";
-import NavBar from "../../../components/Navbar";
+import NavBar from "../../../components/NavBar";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 

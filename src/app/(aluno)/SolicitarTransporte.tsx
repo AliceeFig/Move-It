@@ -1,7 +1,7 @@
 // app/(aluno)/solicitar-transporte.tsx
 import React from "react";
 import { View, Text, TextInput, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from "react-native";
-import NavBar from "../../../components/Navbar";
+import NavBar from "../../../components/NavBar";
 import { MaterialIcons } from "@expo/vector-icons";
 
 const motoristas = [

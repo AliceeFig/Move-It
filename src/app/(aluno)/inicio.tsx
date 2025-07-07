@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
-import NavBar from "../../../components/Navbar";
+import NavBar from "../../../components/NavBar";
 import { router } from "expo-router";
 
 const { width } = Dimensions.get("window");

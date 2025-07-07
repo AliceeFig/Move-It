@@ -36,7 +36,7 @@ export default function Login() {
     const tipo_usuario = authData.user.user_metadata.tipo;
 
     if (tipo_usuario === "aluno") {
-      router.replace("/(aluno)");
+      router.replace("/(aluno)/inicio");
     } else if (tipo_usuario === "motorista") {
       router.replace("/(motorista)");
     } else if (tipo_usuario === "gestor") {

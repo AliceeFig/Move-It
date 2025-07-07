@@ -11,7 +11,7 @@ import { supabase } from "../../lib/supabase";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { useRouter } from "expo-router";
-import NavBar from "../../../components/Navbar";
+import NavBar from "../../../components/NavBar";
 import { DocumentPickerAsset,getDocumentAsync } from "expo-document-picker";
 import { decode } from "base64-arraybuffer";
 
