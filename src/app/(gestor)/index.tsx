@@ -4,11 +4,23 @@ import Navbar from '../../../components/Navbar1';
 import Button from '../../../components/Button';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { useFocusEffect } from '@react-navigation/native';
+import { BackHandler } from 'react-native';
 
 export default function HomeGestor() {
 
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp()
+        return true
+      }; 
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    }, [])
+  );
 
   useEffect(() => {
     async function fetchUsuario() {
@@ -43,8 +55,8 @@ export default function HomeGestor() {
 
   return (
     <View style={styles.container}>
-      <Navbar title={nome} 
-      onProfilePress={() => router.push('/profile')}
+      <Navbar title={nome}
+        onProfilePress={() => router.push('/profile')}
       />
 
       <View style={styles.content}>

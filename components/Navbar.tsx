@@ -1,41 +1,104 @@
-import React from "react";
-import { View, StyleSheet, TouchableOpacity, Text } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, StyleSheet, TouchableOpacity, Text, Alert } from "react-native";
 import { Entypo, FontAwesome } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { supabase } from '../src/lib/supabase'; // ajuste conforme sua estrutura
 
-export default function NavBar() {
+type NavBarProps = {
+  hideMapButton?: boolean;
+};
+
+export default function NavBar({ hideMapButton = false }: NavBarProps) {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
 
-  // Verifica se a rota atual começa com o path fornecido
-  const isActive = (path: string) => pathname == path;
+  const [temContratoAtivo, setTemContratoAtivo] = useState<boolean | null>(null);
 
+  useEffect(() => {
+    async function checarContrato() {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        setTemContratoAtivo(false);
+        return;
+      }
+
+      const { data: contratoData, error: contratoError } = await supabase
+        .from("contrato")
+        .select("id")
+        .eq("id_aluno", user.id)
+        .neq("status", "cancelado")
+        .limit(1)
+        .single();
+
+      setTemContratoAtivo(!!contratoData);
+    }
+
+    checarContrato();
+  }, []);
+
+  const isActive = (path: string) => pathname.includes(path);
   const getIconColor = (path: string) =>
     isActive(path) ? "#ffffff" : "rgba(249, 244, 255, 0.6)";
+
+  const isOnMapPage = pathname.includes("/mapa-rota");
+
+  // Função para tentar navegar para o mapa
+  const handleMapaPress = () => {
+    if (temContratoAtivo === null) {
+      Alert.alert("Aguarde", "Verificando seu contrato, tente novamente em alguns segundos.");
+      return;
+    }
+    if (!temContratoAtivo) {
+      Alert.alert(
+        "Sem contrato ativo",
+        "Você precisa ter um contrato ativo para acessar o mapa. Faça uma solicitação."
+      );
+      return;
+    }
+    router.replace("/(aluno)/mapa-rota");
+  };
 
   return (
     <View style={{ position: "absolute", bottom: 0, width: "100%" }}>
       <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-        {/* Meia-lua atrás do botão flutuante */}
-        <View style={styles.halfMoonInset} />
-        {/* Barra com os ícones laterais */}
+        {!hideMapButton && !isOnMapPage && <View style={styles.halfMoonInset} />}
+
         <View style={styles.navBar}>
           <TouchableOpacity
             style={styles.navItem}
             activeOpacity={0.7}
-            onPress={() => router.replace("../(aluno)/inicio")}
+            onPress={() => router.replace("/(aluno)/inicio")}
           >
             <Entypo name="home" size={30} color={getIconColor("/inicio")} />
             <Text style={[styles.navLabel, { color: getIconColor("/inicio") }]}>
               Início
             </Text>
           </TouchableOpacity>
-          <View style={styles.spacer} />
+
+          {isOnMapPage ? (
+            <TouchableOpacity
+              style={styles.navItem}
+              activeOpacity={0.7}
+              onPress={() => router.replace("/(aluno)/mapa-rota")}
+            >
+              <FontAwesome
+                name="map-marker"
+                size={28}
+                color={getIconColor("/mapa-rota")}
+              />
+              <Text style={[styles.navLabel, { color: getIconColor("/mapa-rota") }]}>
+                Mapa
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.spacer} />
+          )}
+
           <TouchableOpacity
             style={styles.navItem}
             activeOpacity={0.7}
-            onPress={() => router.replace("../(aluno)/geral")}
+            onPress={() => router.replace("/(aluno)/geral")}
           >
             <Entypo name="menu" size={30} color={getIconColor("/geral")} />
             <Text style={[styles.navLabel, { color: getIconColor("/geral") }]}>
@@ -43,30 +106,25 @@ export default function NavBar() {
             </Text>
           </TouchableOpacity>
         </View>
-        {/* Botão flutuante (mapa) com rótulo */}
-        <View style={styles.fabWrapper}>
-          <TouchableOpacity
-            style={styles.fabButton}
-            activeOpacity={0.8}
-            onPress={() => router.replace("../(aluno)/mapa-rota")}
-          >
-            <FontAwesome
-              name="map-marker"
-              size={28}
-              color={getIconColor("/mapa-rota")}
-            />
-          </TouchableOpacity>
-          <Text
-            style={[
-              styles.fabLabel,
-              {
-                color: getIconColor("/mapa-rota") || "rgba(249, 244, 255, 0.6)",
-              },
-            ]}
-          >
-            Mapa
-          </Text>
-        </View>
+
+        {!hideMapButton && !isOnMapPage && (
+          <View style={styles.fabWrapper}>
+            <TouchableOpacity
+              style={styles.fabButton}
+              activeOpacity={0.8}
+              onPress={handleMapaPress} // usa a função que verifica contrato
+            >
+              <FontAwesome
+                name="map-marker"
+                size={28}
+                color={getIconColor("/mapa-rota")}
+              />
+            </TouchableOpacity>
+            <Text style={[styles.fabLabel, { color: getIconColor("/mapa-rota") }]}>
+              Mapa
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -128,7 +186,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "rgba(123, 44, 191, 0.85)",
+    backgroundColor: "#9D4EDD",
     alignItems: "center",
     justifyContent: "center",
   },

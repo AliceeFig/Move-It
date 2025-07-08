@@ -7,19 +7,43 @@ import {
   Dimensions,
   TouchableOpacity,
   Image,
+  Alert,
+  BackHandler,
 } from "react-native";
-import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import NavBar from "../../../components/NavBar";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import NotificacaoBell from "../../../components/NotificacaoBell";
 
 const { width } = Dimensions.get("window");
+
+const meses = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 export default function HomeAluno() {
   const [nomeUsuario, setNomeUsuario] = useState("Aluno");
   const [fotoPerfil, setFotoPerfil] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState("");
   const [iconeHora, setIconeHora] = useState("sunny-outline");
+
+  const [loadingPagamento, setLoadingPagamento] = useState(true);
+  const [pagamentoPago, setPagamentoPago] = useState<boolean | null>(null);
+
+  const [statusContrato, setStatusContrato] = useState<string | null>(null);
+  const [loadingContrato, setLoadingContrato] = useState(true);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        BackHandler.exitApp()
+        return true
+      };
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    }, [])
+  );
 
   useEffect(() => {
     async function fetchUsuario() {
@@ -36,6 +60,9 @@ export default function HomeAluno() {
 
       setNomeUsuario(data.nome || "Aluno");
       setFotoPerfil(data.fotoPerfil || null);
+
+      await verificarPagamentoMesAtual(user.id);
+      await verificarStatusContrato(user.id);
     }
 
     function gerarMensagem() {
@@ -52,18 +79,99 @@ export default function HomeAluno() {
       }
     }
 
+    async function verificarPagamentoMesAtual(userId: string) {
+      setLoadingPagamento(true);
+      const hoje = new Date();
+      const mesAtualNome = meses[hoje.getMonth()];
+      const anoAtual = hoje.getFullYear();
+
+      const { data, error } = await supabase
+        .from("pagamentos")
+        .select("*")
+        .eq("id_aluno", userId)
+        .eq("mes", mesAtualNome)
+        .eq("ano", anoAtual)
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.log("Erro ao buscar pagamento:", error.message);
+        setPagamentoPago(false);
+      } else {
+        setPagamentoPago(data?.comprovante_url ? true : false);
+      }
+      setLoadingPagamento(false);
+    }
+
+    async function verificarStatusContrato(userId: string) {
+      setLoadingContrato(true);
+
+      const { data, error } = await supabase
+        .from("contrato")
+        .select("status")
+        .eq("id_aluno", userId)
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        console.log("Erro ao buscar contrato:", error.message);
+        setStatusContrato("Sem contrato");
+      } else if (!data) {
+        setStatusContrato("Sem contrato");
+      } else {
+        const statusBanco = data.status?.toLowerCase() || "";
+
+        if (statusBanco === "ativo") {
+          setStatusContrato("Ativo");
+        } else if (statusBanco === "solicitado") {
+          setStatusContrato("Solicitado");
+        } else {
+          setStatusContrato("Sem contrato");
+        }
+      }
+
+      setLoadingContrato(false);
+    }
+
     fetchUsuario();
     setMensagem(gerarMensagem());
   }, []);
 
   const primeiraLetra = nomeUsuario.charAt(0).toUpperCase();
 
+  function onPressVencimento() {
+    if (pagamentoPago) {
+      router.push("/(aluno)/VerPagamentos");
+    } else {
+      router.push("/(aluno)/RegistrarPagamento");
+    }
+  }
+
+  function onPressTransporte() {
+    if (loadingContrato) return;
+
+    if (statusContrato === "Ativo") {
+      router.push("/(aluno)/VerContrato");
+    } else if (statusContrato === "Solicitado") {
+      Alert.alert("Solicitação enviada", "Sua solicitação foi enviada. Agora é preciso aguardar a empresa analisar seu pedido.");
+    } else {
+      router.push("/(aluno)/SolicitarTransporte");
+    }
+  }
+
+  function onPressBotaoGeral() {
+    router.push("/(aluno)/geral");
+  }
+
+  const hoje = new Date();
+  const mesAtualNome = meses[hoje.getMonth()];
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.headerContent}>
-            <TouchableOpacity onPress={() => router.push("../(aluno)/perfil")}>
+            <TouchableOpacity onPress={() => router.push("/(aluno)/perfil")}>
               <View style={styles.avatar}>
                 {fotoPerfil ? (
                   <Image source={{ uri: fotoPerfil }} style={styles.avatarImage} />
@@ -81,23 +189,51 @@ export default function HomeAluno() {
               <Text style={styles.userName}>{nomeUsuario.split(" ")[0]}!</Text>
               <Text style={styles.subtext}>Pronto para mais um dia?</Text>
             </View>
-
-            <TouchableOpacity onPress={() => router.push("../(aluno)/inicio")}>
-              <Ionicons name="notifications-outline" size={28} color="#fff" />
-            </TouchableOpacity>
+            <NotificacaoBell />
           </View>
         </View>
 
         <View style={styles.cardContainer}>
-          <StatusCard icon="calendar-check" label="Vencimento" value="10/07" />
-          <StatusCard icon="bus" label="Transporte" value="Ativo" />
+          <TouchableOpacity onPress={onPressVencimento} activeOpacity={0.7}>
+            <StatusCard
+              icon="calendar-check"
+              label={
+                loadingPagamento
+                  ? "Carregando..."
+                  : statusContrato === "Sem contrato"
+                    ? "Indisponível"
+                    : pagamentoPago
+                      ? "Parcela enviada"
+                      : "Parcela aberta"
+              }
+              value={
+                loadingPagamento
+                  ? ""
+                  : statusContrato === "Sem contrato"
+                    ? ""
+                    : mesAtualNome
+              }
+              isPago={statusContrato !== "Sem contrato" && pagamentoPago === true}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={onPressTransporte} activeOpacity={0.7}>
+            <StatusCard
+              icon="bus"
+              label="Transporte"
+              value={loadingContrato ? "Carregando..." : statusContrato || "Sem contrato"}
+            />
+          </TouchableOpacity>
         </View>
 
-        <InfoCard
-          icon="alert-circle-outline"
-          title="Avisos importantes"
-          description="Atenção: horários alterados para sexta-feira."
-        />
+        <TouchableOpacity
+          style={styles.botaoGeral}
+          activeOpacity={0.8}
+          onPress={onPressBotaoGeral}
+        >
+          <Ionicons name="grid-outline" size={24} color="#fff" style={{ marginRight: 10 }} />
+          <Text style={styles.botaoGeralTexto}>mais opções</Text>
+        </TouchableOpacity>
 
         <View style={styles.tipCard}>
           <Ionicons name="bulb-outline" size={28} color="#5A189A" style={{ marginBottom: 10 }} />
@@ -112,9 +248,9 @@ export default function HomeAluno() {
   );
 }
 
-function StatusCard({ icon, label, value }: { icon: any; label: string; value: string }) {
+function StatusCard({ icon, label, value, isPago = false }: { icon: any; label: string; value: string; isPago?: boolean }) {
   return (
-    <View style={styles.statusCard}>
+    <View style={[styles.statusCard, isPago && styles.statusCardPago]}>
       <FontAwesome5 name={icon} size={24} color="#fff" />
       <Text style={styles.statusLabel}>{label}</Text>
       <Text style={styles.statusValue}>{value}</Text>
@@ -122,31 +258,13 @@ function StatusCard({ icon, label, value }: { icon: any; label: string; value: s
   );
 }
 
-function InfoCard({ icon, title, description }: { icon: any; title: string; description: string }) {
-  return (
-    <View style={styles.infoCard}>
-      <View style={styles.infoIconWrapper}>
-        <MaterialCommunityIcons name={icon} size={28} color="#5A189A" />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.infoTitle}>{title}</Text>
-        <Text style={styles.infoDescription}>{description}</Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F9F4FF",
-  },
+  container: { flex: 1, backgroundColor: "#F9F4FF" },
   header: {
-    backgroundColor: "#7B2CBF",
+    backgroundColor: "#5A189A",
     paddingTop: 80,
     paddingBottom: 60,
     paddingHorizontal: 24,
-
     marginBottom: 30,
   },
   headerContent: {
@@ -174,30 +292,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#5A189A",
   },
-  greeting: {
-    color: "#fff",
-    fontSize: 18,
-  },
-  userName: {
-    color: "#fff",
-    fontSize: 26,
-    fontWeight: "bold",
-  },
-  subtext: {
-    color: "#f3dfff",
-    fontSize: 14,
-    marginTop: 4,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
+  greeting: { color: "#fff", fontSize: 18 },
+  userName: { color: "#fff", fontSize: 26, fontWeight: "bold" },
+  subtext: { color: "#f3dfff", fontSize: 14, marginTop: 4 },
+  row: { flexDirection: "row", alignItems: "center" },
+  content: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
   cardContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -212,12 +312,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#5A189A",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    borderWidth: 3,
-    borderColor: "rgba(120, 37, 193, 0.85)",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
     shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  statusCardPago: {
+    backgroundColor: "#5A189A",
   },
   statusLabel: {
     color: "#fff",
@@ -229,31 +331,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginTop: 4,
+    textAlign: "center",
   },
-  infoCard: {
-    backgroundColor: "#F3E8FF",
-    borderRadius: 16,
-    flexDirection: "row",
-    padding: 16,
-    marginBottom: 20,
+  botaoGeral: {
+    backgroundColor: "#9D4EDD",
     marginHorizontal: 24,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    justifyContent: "center",
+    marginBottom: 30,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
   },
-  infoIconWrapper: {
-    backgroundColor: "#E5D4FA",
-    padding: 10,
-    borderRadius: 12,
-  },
-  infoTitle: {
-    fontSize: 15,
+  botaoGeralTexto: {
+    color: "#fff",
+    fontSize: 18,
     fontWeight: "bold",
-    color: "#4B3B83",
-    marginBottom: 4,
-  },
-  infoDescription: {
-    fontSize: 13,
-    color: "#5A189A",
   },
   tipCard: {
     backgroundColor: "#EADCFD",

@@ -2,9 +2,9 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-nativ
 import { useEffect, useState } from 'react';
 import Button from '../../../components/Button';
 import FiltroInput from '../../../components/FiltroInput';
-import FiltroSelect from '@/components/FiltroSelect';
+import FiltroSelect from '../../../components/FiltroSelect';
 import { router } from 'expo-router';
-import { supabase } from '@/src/lib/supabase';
+import { supabase } from '../../../src/lib/supabase';
 
 interface ItemContrato {
   id: string;
