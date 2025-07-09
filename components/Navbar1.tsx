@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
-import { useEffect, useState } from 'react';
 import { supabase } from '../src/lib/supabase';
 
 type NavBarProps = {
@@ -9,6 +8,7 @@ type NavBarProps = {
   onProfilePress?: () => void;
 };
 
+export default function NavBar1({ title, onProfilePress }: NavBarProps) {
   const [nome, setNome] = useState('');
 
   useEffect(() => {
@@ -27,8 +27,6 @@ type NavBarProps = {
     fetchNome();
   }, []);
 
-
-export default function NavBar1({ title, onProfilePress }: NavBarProps) {
   return (
     <View style={styles.navBar}>
       <View style={styles.profileContainer}>

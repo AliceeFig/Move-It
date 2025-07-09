@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,51 +9,258 @@ import {
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import * as Location from "expo-location";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import NavBar from "../../../components/NavBar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import NotificacaoBell from "../../../components/NotificacaoBell";
+import { supabase } from "../../lib/supabase"; // ajuste conforme seu projeto
 
 export default function MapaRota() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [showRoute, setShowRoute] = useState(false);
+  const [isCardExpanded, setIsCardExpanded] = useState(true);
+  const [paradaAtiva, setParadaAtiva] = useState(true);
+  const [pontos, setPontos] = useState<
+    { id: number; nome: string; latitude: number; longitude: number }[]
+  >([]);
+  const [loadingPontos, setLoadingPontos] = useState(true);
+
+  // Ponto inicial do usuário pelo contrato (para referência)
+  const [pontoInicialUsuario, setPontoInicialUsuario] = useState<{
+    id: number;
+    nome: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  // Ponto mais próximo calculado em runtime (com base na localização atual)
+  const [pontoMaisProximo, setPontoMaisProximo] = useState<{
+    id: number;
+    nome: string;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  const mapRef = useRef<MapView>(null);
   const insets = useSafeAreaInsets();
 
-  const pontos = [
-    { latitude: -16.172573080284458, longitude: -40.69195368803942 },
-    { latitude: -16.178703385990282, longitude: -40.69510173092929 },
-    { latitude: -16.175709106624883, longitude: -40.69370360579556 },
-    { latitude: -16.17546553101689, longitude: -40.69462175976522 },
-    { latitude: -16.17617130804986, longitude: -40.69600936856917 },
-    { latitude: -16.177299208199663, longitude: -40.69819564812395 },
-    { latitude: -16.180368499697867, longitude: -40.69576630394435 },
-    { latitude: -16.18308480651907, longitude: -40.6949756174368 },
-    { latitude: -16.184997586897833, longitude: -40.69729963973211 },
-    { latitude: -16.18997220068449, longitude: -40.69614273092904 },
-  ];
+  // ID da rota fixa
+  const idRota = 1;
 
-  const destino = { latitude: -16.228924213015134, longitude: -40.74328593972636 };
+  // Coordenadas fixas do ponto final, conforme informado
+  const destinoFixo = {
+    latitude: -16.228924213015134,
+    longitude: -40.74328593972636,
+  };
 
   useEffect(() => {
     (async () => {
+      console.time("RequestLocationPermission");
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Permissão negada", "Habilite a localização para usar o mapa");
+        console.timeEnd("RequestLocationPermission");
         return;
       }
       const loc = await Location.getCurrentPositionAsync({});
       setLocation(loc);
+      console.timeEnd("RequestLocationPermission");
     })();
   }, []);
+
+  // Buscar pontos da rota
+  async function buscarPontosDaRota() {
+    console.time("buscarPontosDaRota");
+    setLoadingPontos(true);
+    try {
+      let { data, error } = await supabase
+        .from("rota_pontos")
+        .select(`
+          ordem,
+          pontos_parada (
+            id,
+            nome,
+            latitude,
+            longitude
+          )
+        `)
+        .eq("id_rota", idRota)
+        .order("ordem", { ascending: true });
+
+      if (error) {
+        console.error("Erro ao buscar pontos da rota:", error);
+        Alert.alert("Erro", "Não foi possível carregar os pontos da rota.");
+        return;
+      }
+
+      if (data) {
+        const pontosOrdenados = data.map((item: any) => ({
+          id: item.pontos_parada.id,
+          nome: item.pontos_parada.nome,
+          latitude: item.pontos_parada.latitude,
+          longitude: item.pontos_parada.longitude,
+        }));
+        setPontos(pontosOrdenados);
+      }
+    } finally {
+      setLoadingPontos(false);
+      console.timeEnd("buscarPontosDaRota");
+    }
+  }
+
+  // Buscar ponto inicial real do usuário logado (contrato.id_ponto_inicial)
+  async function buscarPontoInicialUsuario() {
+    console.time("buscarPontoInicialUsuario");
+    try {
+      const getUserResult = await supabase.auth.getUser();
+      const user = getUserResult.data.user;
+      if (!user) return;
+
+      let { data: contratos, error: errContrato } = await supabase
+        .from("contrato")
+        .select("id_ponto_inicial")
+        .eq("id_aluno", user.id)
+        .limit(1)
+        .single();
+
+      if (errContrato || !contratos) {
+        console.error("Erro ao buscar contrato do usuário:", errContrato);
+        return;
+      }
+
+      const pontoId = contratos.id_ponto_inicial;
+      if (!pontoId) return;
+
+      let { data: pontoData, error: errPonto } = await supabase
+        .from("pontos_parada")
+        .select("id, nome, latitude, longitude")
+        .eq("id", pontoId)
+        .limit(1)
+        .single();
+
+      if (errPonto || !pontoData) {
+        console.error("Erro ao buscar ponto inicial do usuário:", errPonto);
+        return;
+      }
+
+      setPontoInicialUsuario({
+        id: pontoData.id,
+        nome: pontoData.nome,
+        latitude: pontoData.latitude,
+        longitude: pontoData.longitude,
+      });
+    } catch (error) {
+      console.error("Erro ao buscar ponto inicial do usuário:", error);
+    }
+    console.timeEnd("buscarPontoInicialUsuario");
+  }
+
+  // Calcula o ponto mais próximo do usuário com base na localização atual e lista de pontos
+  function calcularPontoMaisProximo() {
+    if (!location || pontos.length === 0) {
+      setPontoMaisProximo(null);
+      return;
+    }
+    let minDist = Infinity;
+    let pontoProximo = null;
+
+    for (const ponto of pontos) {
+      const dist = getDistance(
+        location.coords.latitude,
+        location.coords.longitude,
+        ponto.latitude,
+        ponto.longitude
+      );
+      if (dist < minDist) {
+        minDist = dist;
+        pontoProximo = ponto;
+      }
+    }
+    setPontoMaisProximo(pontoProximo);
+  }
+
+  // Função para calcular distância aproximada em metros entre duas coordenadas (Haversine)
+  function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const toRad = (value: number) => (value * Math.PI) / 180;
+    const R = 6371e3; // metros
+    const φ1 = toRad(lat1);
+    const φ2 = toRad(lat2);
+    const Δφ = toRad(lat2 - lat1);
+    const Δλ = toRad(lon2 - lon1);
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    const d = R * c;
+    return d;
+  }
+
+  // Buscar dados ao montar o componente
+  useEffect(() => {
+    buscarPontosDaRota();
+    buscarPontoInicialUsuario();
+  }, []);
+
+  // Recalcular ponto mais próximo sempre que a localização ou os pontos mudarem
+  useEffect(() => {
+    calcularPontoMaisProximo();
+  }, [location, pontos]);
+
+  // Função que vai centralizar o mapa na parada inicial real do usuário ou na localização atual, alternando
+  const irParaParadaInicialUsuario = () => {
+    if (!mapRef.current) return;
+
+    if (paradaAtiva) {
+      // Centraliza na parada inicial do contrato
+      if (pontoInicialUsuario) {
+        mapRef.current.animateToRegion(
+          {
+            latitude: pontoInicialUsuario.latitude,
+            longitude: pontoInicialUsuario.longitude,
+            latitudeDelta: 0.0015,
+            longitudeDelta: 0.0015,
+          },
+          1000
+        );
+      } else {
+        Alert.alert("Ponto inicial não encontrado para seu usuário.");
+      }
+    } else {
+      // Centraliza na localização atual do usuário
+      if (location) {
+        mapRef.current.animateToRegion(
+          {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.015,
+          },
+          1000
+        );
+      }
+    }
+    setParadaAtiva(!paradaAtiva);
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace("/inicio");
+          }}
+          activeOpacity={0.7}
+        >
           <Ionicons name="arrow-back" size={26} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerText}>Mapa de Embarque</Text>
+        <Text style={styles.headerText}>Mapa de Transporte</Text>
         <View style={{ width: 44 }} />
+        <NotificacaoBell />
       </View>
 
       {!location ? (
@@ -63,30 +270,62 @@ export default function MapaRota() {
         </View>
       ) : (
         <MapView
+          ref={mapRef}
           style={styles.map}
           region={{
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
-            latitudeDelta: 0.02,
-            longitudeDelta: 0.02,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
           }}
           showsUserLocation
           showsMyLocationButton
         >
-          {pontos.map((ponto, index) => (
+          {/* Marcadores dos pontos da rota */}
+          {!loadingPontos &&
+            pontos.map((ponto) => (
+              <Marker
+                key={`ponto-${ponto.id}`}
+                coordinate={{ latitude: ponto.latitude, longitude: ponto.longitude }}
+                title={ponto.nome}
+                pinColor="purple"
+              />
+            ))}
+
+          {/* Marcador do ponto inicial do usuário (contrato) */}
+          {pontoInicialUsuario && (
             <Marker
-              key={`ponto-${index}`}
-              coordinate={ponto}
-              title={`Parada ${index + 1}`}
-              pinColor="purple"
+              coordinate={{
+                latitude: pontoInicialUsuario.latitude,
+                longitude: pontoInicialUsuario.longitude,
+              }}
+              title={`Sua parada inicial: ${pontoInicialUsuario.nome}`}
+              pinColor="blue"
             />
-          ))}
+          )}
 
-          <Marker coordinate={destino} title="Instituto Federal IFNMG" pinColor="red" />
+          {/* Marcador do ponto mais próximo calculado */}
+          {pontoMaisProximo && (
+            <Marker
+              coordinate={{
+                latitude: pontoMaisProximo.latitude,
+                longitude: pontoMaisProximo.longitude,
+              }}
+              title={`Parada mais próxima: ${pontoMaisProximo.nome}`}
+              pinColor="green"
+            />
+          )}
 
-          {showRoute && (
+          {/* Marcador do ponto final fixo */}
+          <Marker coordinate={destinoFixo} title="Destino Final" pinColor="red" />
+
+          {/* Linha da rota */}
+          {showRoute && !loadingPontos && (
             <Polyline
-              coordinates={[...pontos, destino]}
+              coordinates={pontos.map((p) => ({
+                latitude: p.latitude,
+                longitude: p.longitude,
+              }))}
               strokeWidth={5}
               strokeColor="#7B2CBF"
             />
@@ -95,32 +334,64 @@ export default function MapaRota() {
       )}
 
       {location && (
-        <View style={[styles.infoCard, { bottom: insets.bottom + 100 }]}>
-          <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="bus" size={22} color="#5A189A" />
-          </View>
-          <View style={styles.textWrapper}>
-            <Text style={styles.cardTitle}>Ponto mais próximo</Text>
-            <Text style={styles.cardAddress}>Parada 1</Text>
-          </View>
+        <>
+          {isCardExpanded ? (
+            <View style={[styles.infoCardExpanded, { bottom: insets.bottom + 100 }]}>
+              <TouchableOpacity
+                style={styles.toggleButton}
+                onPress={() => setIsCardExpanded(false)}
+              >
+                <Ionicons name="chevron-down" size={20} color="#5A189A" />
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.routeButton}
-            activeOpacity={0.8}
-            onPress={() => setShowRoute(!showRoute)}
-          >
-            <Text style={styles.routeButtonText}>{showRoute ? "Ocultar rota" : "Ver rota"}</Text>
-            <Ionicons
-              name={showRoute ? "close" : "arrow-forward"}
-              size={18}
-              color="#fff"
-              style={{ marginLeft: 6 }}
-            />
-          </TouchableOpacity>
-        </View>
+              <View style={styles.textWrapper}>
+                <Text style={styles.cardTitle}>Ponto mais próximo</Text>
+                <Text style={styles.cardAddress}>
+                  {pontoMaisProximo
+                    ? pontoMaisProximo.nome
+                    : pontoInicialUsuario
+                    ? pontoInicialUsuario.nome
+                    : pontos.length > 0
+                    ? pontos[0].nome
+                    : "Sem pontos"}
+                </Text>
+              </View>
+
+              <View style={styles.buttonsRow}>
+                <TouchableOpacity
+                  style={styles.routeButton}
+                  activeOpacity={0.8}
+                  onPress={() => setShowRoute(!showRoute)}
+                >
+                  <Text style={styles.routeButtonText}>
+                    {showRoute ? "Ocultar rota" : "Ver rota"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.routeButton, { marginLeft: 8 }]}
+                  activeOpacity={0.8}
+                  onPress={irParaParadaInicialUsuario}
+                >
+                  <Text style={styles.routeButtonText}>
+                    {paradaAtiva ? "Minha parada" : "Paradas"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.infoCardMinimized, { bottom: insets.bottom + 120 }]}
+              onPress={() => setIsCardExpanded(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="map-outline" size={28} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </>
       )}
 
-      <NavBar extraBottomPadding={10} />
+      <NavBar />
     </View>
   );
 }
@@ -155,63 +426,59 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff",
   },
-  infoCard: {
+  infoCardExpanded: {
     position: "absolute",
     left: 20,
     right: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "rgba(255, 255, 255, 0.68)",
     borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    shadowColor: "#5A189A",
-    shadowOpacity: 0.22,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 12,
-    elevation: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#E0D7FF",
+  infoCardMinimized: {
+    position: "absolute",
+    right: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(122, 44, 191, 0.69)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
-    shadowColor: "#7B2CBF",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 6,
   },
-  textWrapper: { flex: 1 },
+  toggleButton: {
+    alignSelf: "flex-end",
+    padding: 4,
+  },
+  textWrapper: { marginBottom: 10 },
   cardTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#4B2995",
-    marginBottom: 0,
+    color: "#4B3B83",
   },
   cardAddress: {
-    fontSize: 13,
-    color: "#6E4AA7",
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#5A189A",
+  },
+  buttonsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    gap: 10,
   },
   routeButton: {
+    flex: 1,
     backgroundColor: "#7B2CBF",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 25,
     flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#3A0CA3",
-    shadowOpacity: 0.55,
-    shadowOffset: { width: 0, height: 5 },
-    shadowRadius: 9,
-    elevation: 8,
   },
   routeButtonText: {
     color: "#fff",
     fontWeight: "700",
-    fontSize: 14,
+    fontSize: 15,
   },
 });

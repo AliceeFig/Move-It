@@ -6,16 +6,17 @@ import {
     SafeAreaView,
     FlatList,
     TouchableOpacity,
-    Modal,
-    Image,
     ActivityIndicator,
     Alert,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { supabase } from "../../lib/supabase";
 import NavBar from "../../../components/NavBar";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, Feather, AntDesign } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import Modal from "react-native-modal";
+import ImageViewer from "react-native-image-zoom-viewer";
+import NotificacaoBell from "../../../components/NotificacaoBell";
 
 const meses = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -30,9 +31,10 @@ type Pagamento = {
     ano: number;
     valor: number;
     comprovante_url: string | null;
+    data_pagamento: string;
 };
 
-export default function VerPagamentos() {
+export default function Pagamentos() {
     const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
     const [loading, setLoading] = useState(true);
     const [filtroMes, setFiltroMes] = useState("");
@@ -53,16 +55,14 @@ export default function VerPagamentos() {
         let query = supabase.from("pagamentos")
             .select("*")
             .eq("id_aluno", user.id)
-            .order("ano", { ascending: false })
-            .order("mes", { ascending: false });
+            .order("data_pagamento", { ascending: false });
 
         if (filtroMes) query = query.eq("mes", filtroMes);
         if (filtroAno) query = query.eq("ano", parseInt(filtroAno));
 
         const { data, error } = await query;
-
         if (error) {
-            Alert.alert("Erro ao buscar histórico de pagamentos", error.message);
+            Alert.alert("Erro ao buscar pagamentos", error.message);
             setLoading(false);
             return;
         }
@@ -80,64 +80,121 @@ export default function VerPagamentos() {
         setModalVisible(true);
     };
 
-    const renderItem = ({ item }: { item: Pagamento }) => (
-        <View style={styles.cardPagamento}>
-            <View>
-                <Text style={styles.cardTitulo}>{item.mes} / {item.ano}</Text>
-                <Text style={styles.cardValor}>R$ {item.valor.toFixed(2).replace(".", ",")}</Text>
-            </View>
-            {item.comprovante_url ? (
-                <TouchableOpacity
-                    style={styles.botaoComprovante}
-                    onPress={() => abrirModalComImagem(item.comprovante_url)}
-                >
-                    <Text style={styles.textoBotao}>Ver comprovante</Text>
+    const handleDeletePagamento = async (id: string) => {
+        const { error } = await supabase
+            .from("pagamentos")
+            .delete()
+            .eq("id", id);
+
+        if (error) {
+            Alert.alert("Erro", "Não foi possível apagar o pagamento.");
+        } else {
+            fetchPagamentos();
+        }
+    };
+
+    const confirmarExclusao = (item: Pagamento) => {
+        Alert.alert(
+            "Excluir pagamento",
+            "Tem certeza que deseja apagar esse pagamento permanentemente?",
+            [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Apagar", style: "destructive", onPress: () => handleDeletePagamento(item.id) },
+            ]
+        );
+    };
+
+    const renderItem = ({ item }: { item: Pagamento }) => {
+        const dataPagamentoFormatada = new Intl.DateTimeFormat('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        }).format(new Date(item.data_pagamento));
+
+        return (
+            <View style={styles.cardPagamento}>
+                <View style={{ flex: 1 }}>
+                    <Text style={{ marginBottom: 6, color: '#555', fontSize: 13 }}>
+                        Enviado em {dataPagamentoFormatada}
+                    </Text>
+                    <Text style={styles.cardTitulo}>{item.mes} / {item.ano}</Text>
+                    <Text style={styles.cardValor}>R$ {item.valor.toFixed(2).replace(".", ",")}</Text>
+                    {item.comprovante_url && (
+                        <TouchableOpacity onPress={() => abrirModalComImagem(item.comprovante_url)}>
+                            <Text style={styles.textoBotao}>Ver comprovante</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+                <TouchableOpacity onPress={() => confirmarExclusao(item)} style={styles.trashButton}>
+                    <Feather name="trash-2" size={22} color="#4B3B83" />
                 </TouchableOpacity>
-            ) : (
-                <Text style={styles.semComprovante}>Sem comprovante</Text>
-            )}
-        </View>
-    );
+            </View>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.profileIcon}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <MaterialIcons name="arrow-back" size={24} color="#fff" />
                 </TouchableOpacity>
-                <Text style={styles.headerText}>Histórico de Pagamentos</Text>
+
+                <Text style={styles.headerText}>Pagamentos</Text>
+
+                <View style={styles.notificacaoContainer}>
+                    <NotificacaoBell />
+                </View>
             </View>
 
-            {/* Modal para visualização do comprovante */}
             <Modal
-                visible={modalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setModalVisible(false)}
+                isVisible={modalVisible}
+                onBackdropPress={() => setModalVisible(false)}
+                style={{ margin: 0, backgroundColor: "black" }}
             >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    onPress={() => setModalVisible(false)}
-                    activeOpacity={1}
-                >
-                    <Image source={{ uri: imagemSelecionada || "" }} style={styles.modalImage} resizeMode="contain" />
-                </TouchableOpacity>
+                {imagemSelecionada && (
+                    <>
+                        <TouchableOpacity
+                            style={styles.closeButton}
+                            onPress={() => setModalVisible(false)}
+                        >
+                            <AntDesign name="close" size={28} color="#fff" />
+                        </TouchableOpacity>
+
+                        <ImageViewer
+                            imageUrls={[{ url: imagemSelecionada }]}
+                            enableSwipeDown={true}
+                            onSwipeDown={() => setModalVisible(false)}
+                            renderIndicator={() => null}
+                        />
+                    </>
+                )}
             </Modal>
 
-            {/* Conteúdo */}
             <View style={styles.content}>
                 <View style={styles.filtrosContainer}>
                     <View style={styles.filtroBox}>
-                        <Picker selectedValue={filtroMes} onValueChange={setFiltroMes}>
-                            <Picker.Item label="Todos os meses" value="" />
-                            {meses.map((m) => <Picker.Item key={m} label={m} value={m} />)}
+                        <Picker
+                            selectedValue={filtroMes}
+                            onValueChange={setFiltroMes}
+                            style={styles.pickerFiltro}
+                            dropdownIconColor="#4B3B83"
+                        >
+                            <Picker.Item label="Mês" value="" />
+                            {meses.map((m) => (
+                                <Picker.Item key={m} label={m} value={m} />
+                            ))}
                         </Picker>
                     </View>
                     <View style={styles.filtroBox}>
-                        <Picker selectedValue={filtroAno} onValueChange={setFiltroAno}>
-                            <Picker.Item label="Todos os anos" value="" />
-                            {anos.map((a) => <Picker.Item key={a} label={String(a)} value={String(a)} />)}
+                        <Picker
+                            selectedValue={filtroAno}
+                            onValueChange={setFiltroAno}
+                            style={styles.pickerFiltro}
+                            dropdownIconColor="#4B3B83"
+                        >
+                            <Picker.Item label="Ano" value="" />
+                            {anos.map((a) => (
+                                <Picker.Item key={a} label={String(a)} value={String(a)} />
+                            ))}
                         </Picker>
                     </View>
                 </View>
@@ -151,12 +208,13 @@ export default function VerPagamentos() {
                         data={pagamentos}
                         keyExtractor={(item) => item.id}
                         renderItem={renderItem}
-                        contentContainerStyle={{ paddingBottom: 30 }}
+                        contentContainerStyle={{ paddingBottom: 120, paddingTop: 10 }}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
                     />
                 )}
             </View>
 
-            {/* NavBar */}
             <View style={styles.navBarWrapper}>
                 <NavBar />
             </View>
@@ -169,90 +227,107 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
+        justifyContent: "center",
         backgroundColor: "#5A189A",
-        padding: 16,
-        paddingTop: 40,
+        paddingTop: 60,
+        paddingBottom: 30,
+        paddingHorizontal: 16,
+        position: "relative",
     },
-    profileIcon: {
-        backgroundColor: "#5A189A",
-        borderRadius: 20,
+    backButton: {
+        position: "absolute",
+        left: 16,
+        top: 60,
+        backgroundColor: "#ffffff33",
         padding: 8,
-        marginRight: 12,
+        borderRadius: 10,
+    },
+    notificacaoContainer: {
+        position: "absolute",
+        right: 16,
+        top: 60,
     },
     headerText: {
         color: "white",
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: "bold",
     },
     content: {
         flex: 1,
         backgroundColor: "#fff",
-        padding: 20,
+        paddingHorizontal: 25,
+        paddingTop: 20,
     },
     filtrosContainer: {
         flexDirection: "row",
         justifyContent: "space-between",
-        marginBottom: 16,
         gap: 10,
+        marginBottom: 20,
     },
     filtroBox: {
         flex: 1,
         borderWidth: 1,
-        borderColor: "#ccc",
-        borderRadius: 10,
+        borderColor: "#cfcfcf",
+        borderRadius: 12,
+        backgroundColor: "#fafafa",
         overflow: "hidden",
     },
+    pickerFiltro: {
+        color: "#4B3B83",
+    },
     cardPagamento: {
+        backgroundColor: "#fefefe",
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        elevation: 3,
+        shadowColor: "#000",
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
-        backgroundColor: "#f5f5f5",
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
+    },
+    trashButton: {
+        padding: 8,
+        marginLeft: 10,
     },
     cardTitulo: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "#333",
+        fontSize: 17,
+        fontWeight: "700",
+        color: "#4B3B83",
     },
     cardValor: {
         fontSize: 16,
         color: "#5A189A",
-        marginTop: 4,
-    },
-    botaoComprovante: {
-        backgroundColor: "#5A189A",
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 8,
+        marginTop: 6,
+        fontWeight: "600",
     },
     textoBotao: {
-        color: "#fff",
+        color: "#9D4EDD",
         fontWeight: "bold",
-    },
-    semComprovante: {
-        color: "#888",
-        fontStyle: "italic",
+        fontSize: 14,
+        marginTop: 6,
     },
     semPagamentos: {
         textAlign: "center",
         color: "#888",
         fontStyle: "italic",
         marginTop: 40,
+        fontSize: 16,
+    },
+    closeButton: {
+        position: "absolute",
+        top: 30,
+        right: 30,
+        zIndex: 10,
+        backgroundColor: "#00000088",
+        borderRadius: 20,
+        padding: 6,
     },
     navBarWrapper: {
         backgroundColor: "#5A189A",
-        paddingBottom: 20,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: "rgba(0,0,0,0.85)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    modalImage: {
-        width: "90%",
-        height: "80%",
+        paddingBottom: 50,
     },
 });

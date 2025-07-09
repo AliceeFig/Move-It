@@ -17,6 +17,7 @@ import { supabase } from "../../lib/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { decode } from "base64-arraybuffer";
+import NotificacaoBell from "../../../components/NotificacaoBell";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -157,6 +158,7 @@ export default function PerfilAluno() {
                     <View style={styles.titleWrapper}>
                         <Text style={styles.pageTitle}>Perfil</Text>
                     </View>
+                    <NotificacaoBell />
                 </View>
             </View>
 
@@ -220,11 +222,6 @@ export default function PerfilAluno() {
                         Criado em: {new Date(userData.created_at).toLocaleDateString("pt-BR")}
                     </Text>
                 </View>
-
-                <TouchableOpacity style={styles.changePasswordBtn} onPress={changePassword}>
-                    <Text style={styles.changePasswordText}>Redefinir senha</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
                     <Text style={styles.logoutText}>Sair da conta</Text>
                 </TouchableOpacity>
@@ -240,7 +237,7 @@ const styles = StyleSheet.create({
         width: "100%",
         paddingTop: 50,
         paddingHorizontal: 20,
-        backgroundColor: "#7B2CBF",
+        backgroundColor: "#5A189A",
     },
     headerRow: {
         flexDirection: "row",
@@ -285,7 +282,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         bottom: 6,
         right: 6,
-        backgroundColor: "#7B2CBF",
+        backgroundColor: "#9D4EDD",
         padding: 6,
         borderRadius: 20,
         borderWidth: 2,
@@ -297,23 +294,23 @@ const styles = StyleSheet.create({
         paddingTop: 10,
     },
     infoBox: {
-        backgroundColor: "#EDE6FB",
+        backgroundColor: "#EADCFD",
         borderRadius: 16,
         paddingVertical: 14,
         paddingHorizontal: 16,
         marginBottom: 16,
         flexDirection: "row",
         alignItems: "center",
-        shadowColor: "#5A189A",
+        shadowColor: "#000",
         shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: 4 },
-        shadowRadius: 8,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
         elevation: 4,
     },
     infoText: {
         marginLeft: 12,
         fontSize: 16,
-        color: "#3C096C",
+        color: "#5A189A",
         fontWeight: "600",
     },
     modalOverlay: {
@@ -354,20 +351,8 @@ const styles = StyleSheet.create({
         width: "90%",
         height: "80%",
     },
-    changePasswordBtn: {
-        backgroundColor: "#5A189A",
-        paddingVertical: 12,
-        borderRadius: 10,
-        alignItems: "center",
-        marginTop: 10,
-    },
-    changePasswordText: {
-        color: "#fff",
-        fontSize: 16,
-        fontWeight: "bold",
-    },
     logoutBtn: {
-        backgroundColor: "#5A189A",
+        backgroundColor: "#9D4EDD",
         paddingVertical: 12,
         borderRadius: 10,
         alignItems: "center",
